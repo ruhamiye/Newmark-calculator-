@@ -1,0 +1,483 @@
+<title>Newmark Slope Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a two-column workbench (inputs left, results right) that stacks on phones; one accent, step colours shared with the report */
+:root {
+  --paper: #f3f5f4; --surface: #ffffff; --ink: #18211f; --ink2: #4c5855; --rule: #d3dad7; --rule2: #b9c3bf; --chip: #e8eeeb;
+  --accent: #2356a0; --accent-ink: #ffffff; --s1: #2c6e57; --s2: #9a5b0c; --ok: #2c7a50; --warn: #a3650b; --bad: #b23a30;
+  --c1: #2356a0; --c2: #b0662a; --c3: #2c6e57; --c4: #7a4fa3; --c5: #8a8f2a; --c6: #2a8a8a; --c7: #a33a6a; --c8: #5a6470;
+  --f-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Public Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #121615; --surface: #1a201e; --ink: #e3e9e6; --ink2: #a4b1ac; --rule: #333e3a; --rule2: #4a5752; --chip: #24302c;
+  --accent: #80aaf0; --accent-ink: #0f1513; --s1: #63c29c; --s2: #e3a54c; --ok: #63c29c; --warn: #e3a54c; --bad: #ef7f75;
+  --c1: #80aaf0; --c2: #e39a62; --c3: #63c29c; --c4: #b79cec; --c5: #c9cd62; --c6: #62c9c9; --c7: #e98bb3; --c8: #a4b1ac; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #121615; --surface: #1a201e; --ink: #e3e9e6; --ink2: #a4b1ac; --rule: #333e3a; --rule2: #4a5752; --chip: #24302c;
+  --accent: #80aaf0; --accent-ink: #0f1513; --s1: #63c29c; --s2: #e3a54c; --ok: #63c29c; --warn: #e3a54c; --bad: #ef7f75;
+  --c1: #80aaf0; --c2: #e39a62; --c3: #63c29c; --c4: #b79cec; --c5: #c9cd62; --c6: #62c9c9; --c7: #e98bb3; --c8: #a4b1ac; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 56px; display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 85%; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.05; }
+h2 { font-size: 1.15rem; font-weight: 750; }
+p { margin: 0; }
+.mono, code { font-family: var(--f-mono); font-size: 0.86em; }
+.muted { color: var(--ink2); }
+.eyebrow { font: 600 0.72rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+header.top { display: grid; gap: 10px; border-bottom: 2px solid var(--ink); padding-bottom: 18px; }
+header.top p { max-width: 75ch; color: var(--ink2); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badges span { font: 0.78rem var(--f-mono); background: var(--chip); border-radius: 4px; padding: 3px 8px; }
+
+.bench { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 880px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 18px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.step { font: 700 0.68rem/1 var(--f-mono); letter-spacing: 0.06em; color: var(--accent-ink); border-radius: 3px; padding: 4px 6px; }
+.st1 { background: var(--s1); } .st2 { background: var(--s2); } .st3 { background: var(--accent); }
+
+/* form */
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { font-size: 0.82rem; color: var(--ink2); }
+.field label b { color: var(--ink); font-weight: 600; }
+input[type=number], input[type=text], select { font: 0.95rem var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--rule2); border-radius: 6px; padding: 7px 9px; width: 100%; }
+input:focus-visible, select:focus-visible, button:focus-visible, .drop:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule2); border-radius: 6px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { text-align: center; padding: 7px 6px; font-size: 0.85rem; cursor: pointer; color: var(--ink2); }
+.seg input:checked + label { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
+.hint { font-size: 0.8rem; color: var(--ink2); }
+.err { font-size: 0.85rem; color: var(--bad); display: grid; gap: 2px; }
+.drop { display: grid; gap: 6px; justify-items: center; text-align: center; border: 2px dashed var(--rule2); border-radius: 8px; padding: 18px 12px; cursor: pointer; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--chip); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop b { color: var(--accent); }
+.reclist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.reclist li { display: flex; align-items: center; gap: 8px; justify-content: space-between; background: var(--paper); border-radius: 6px; padding: 6px 8px; font-size: 0.85rem; min-width: 0; }
+.reclist .nm { font-family: var(--f-mono); overflow-wrap: anywhere; min-width: 0; }
+.reclist .meta { color: var(--ink2); font-size: 0.78rem; white-space: nowrap; }
+.tag { font: 600 0.66rem/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--warn); border: 1px solid currentColor; border-radius: 3px; padding: 2px 4px; margin-left: 6px; }
+button { font: 600 0.85rem var(--f-body); cursor: pointer; border-radius: 6px; }
+.x { border: 0; background: none; color: var(--ink2); font-size: 1.1rem; line-height: 1; padding: 2px 6px; }
+.x:hover { color: var(--bad); }
+.btn { border: 1px solid var(--rule2); background: var(--surface); color: var(--ink); padding: 7px 12px; }
+.btn:hover { border-color: var(--accent); }
+
+/* results */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.kpi .lab { font-size: 0.78rem; color: var(--ink2); }
+.kpi .val { font: 700 1.5rem/1.15 var(--f-display); font-stretch: 85%; font-variant-numeric: tabular-nums; }
+.kpi .sub { font-size: 0.76rem; color: var(--ink2); }
+.pill { display: inline-block; font: 600 0.72rem/1 var(--f-body); border-radius: 999px; padding: 4px 9px; margin-top: 4px; justify-self: start; }
+.p-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.p-warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.p-bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+th { font: 600 0.7rem/1.3 var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink2); background: var(--paper); vertical-align: bottom; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+td.nm { font-family: var(--f-mono); font-size: 0.8rem; }
+tr.sum td { font-weight: 700; background: var(--paper); }
+.dkey { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { font-family: var(--f-body); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--ink2); }
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.toolbar select { width: auto; max-width: 100%; }
+.stress { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 14px; }
+.stress div { display: grid; }
+.stress .k { font-size: 0.75rem; color: var(--ink2); }
+.stress .v { font: 600 0.95rem var(--f-mono); font-variant-numeric: tabular-nums; }
+.eqline { font: 0.82rem/1.6 var(--f-mono); color: var(--ink2); background: var(--paper); border-radius: 6px; padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
+footer { color: var(--ink2); font-size: 0.8rem; border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 6px; }
+.toast { font-size: 0.82rem; color: var(--ok); }
+@media (max-width: 480px) { .fields { grid-template-columns: 1fr 1fr; } .kpi .val { font-size: 1.3rem; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">CE 665 Group 1 · Track A design tool</div>
+    <h1>Newmark Slope Calculator</h1>
+    <p>Enter the slope, load PEER ground-motion records, and get the factor of safety, the yield acceleration and the permanent Newmark displacement. The calculation runs in your browser with the same equations and integration scheme as the Python tool.</p>
+    <div class="badges"><span>Infinite slope, Eqs. (1)–(3)</span><span>Rigid block, trapezoidal rule, Eqs. (4)–(6)</span><span>Both polarities</span><span>Benchmarks, Eqs. (8)–(10)</span></div>
+  </header>
+
+  <div class="bench">
+    <!-- INPUTS -->
+    <div class="col">
+      <section class="panel" aria-labelledby="h-slope">
+        <div class="panel-h"><h2 id="h-slope">Slope</h2><span class="step st1">STEPS 1–2</span></div>
+        <div class="seg" role="radiogroup" aria-label="How to get k_y">
+          <input type="radio" name="mode" id="mode-soil" value="soil" checked><label for="mode-soil">k_y from soil</label>
+          <input type="radio" name="mode" id="mode-ky" value="ky"><label for="mode-ky">Enter k_y</label>
+        </div>
+        <div class="fields" id="soilFields">
+          <div class="field"><label for="c"><b>c′</b> cohesion (kPa)</label><input type="number" id="c" value="5" step="any" min="0"></div>
+          <div class="field"><label for="phi"><b>φ′</b> friction angle (°)</label><input type="number" id="phi" value="30" step="any"></div>
+          <div class="field"><label for="gamma"><b>γ</b> unit weight (kN/m³)</label><input type="number" id="gamma" value="16" step="any"></div>
+          <div class="field"><label for="z"><b>z</b> slip depth (m)</label><input type="number" id="z" value="1" step="any"></div>
+          <div class="field"><label for="beta"><b>β</b> slope angle (°)</label><input type="number" id="beta" value="35" step="any"></div>
+          <div class="field"><label for="dw"><b>d_w</b> water table (m)</label><input type="number" id="dw" value="1" step="any" placeholder="dry"></div>
+          <div class="field"><label for="gw"><b>γ_w</b> water (kN/m³)</label><input type="number" id="gw" value="9.81" step="any"></div>
+        </div>
+        <div class="fields" id="kyFields" hidden>
+          <div class="field"><label for="kyIn"><b>k_y</b> yield coefficient (g)</label><input type="number" id="kyIn" value="0.28" step="any" min="0"></div>
+        </div>
+        <p class="hint" id="slopeHint">Depths are vertical from the ground surface. Leave d_w empty for a dry slope; d_w ≥ z also counts as dry. Example values: case1 dry.</p>
+        <div class="err" id="slopeErr" role="alert"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-rec">
+        <div class="panel-h"><h2 id="h-rec">Ground motions</h2><span class="step st3">STEP 3</span></div>
+        <label class="drop" id="drop" for="files">
+          <input type="file" id="files" accept=".AT2,.at2" multiple>
+          <span><b>Choose .AT2 files</b> or drop them here</span>
+          <span class="hint">PEER NGA-West2 format, acceleration in g. Several files at once are fine.</span>
+        </label>
+        <ul class="reclist" id="reclist"></ul>
+        <div class="err" id="recErr" role="alert"></div>
+      </section>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="col" aria-live="polite">
+      <div class="kpis" id="kpis"></div>
+
+      <section class="panel" id="stabPanel" aria-labelledby="h-stab">
+        <div class="panel-h"><h2 id="h-stab">Stability, Steps 1–2</h2><span class="step st2">EQS. 1–3</span></div>
+        <div class="stress" id="stress"></div>
+        <div class="eqline" id="eqline"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-res">
+        <div class="panel-h"><h2 id="h-res">Newmark displacement, Step 3</h2>
+          <div class="toolbar"><button class="btn" id="copyCsv" type="button">Copy results as CSV</button><span class="toast" id="toast" aria-live="polite"></span></div></div>
+        <div class="tablewrap"><table id="resTable"></table></div>
+        <p class="hint">D+ uses the record as given, D− the record flipped; D_max is the larger. v_max = peak sliding velocity of the governing direction. Benchmarks are median estimates (D in cm), set to 0 when k_y ≥ PGA.</p>
+      </section>
+
+      <section class="panel chart" aria-labelledby="h-curve">
+        <div class="panel-h"><h2 id="h-curve">Displacement against k_y</h2><span class="muted" style="font-size:.82rem">each record at k_y = 0.02–0.30 g; dashed line = this slope</span></div>
+        <div id="curve"></div>
+        <div class="legend" id="curveLegend"></div>
+      </section>
+
+      <section class="panel chart" aria-labelledby="h-hist">
+        <div class="panel-h"><h2 id="h-hist">Time history</h2>
+          <div class="toolbar"><label for="histSel" class="muted" style="font-size:.82rem">Record</label><select id="histSel"></select></div></div>
+        <div id="hist"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <p><b>Equations.</b> FS = [c′ + (γz cos²β − u) tan φ′] / (γz sin β cos β), u = γ_w (z − d_w) cos²β · k_y = (FS − 1) sin β · a_y = k_y g · while sliding ü_rel = s·a(t) − a_y, trapezoidal integration with the record time step, stop interpolated in the step · D_max = max(D+, D−) · I_a = π/(2g) ∫ a² dt · Ambraseys & Menu (1988), Jibson (2007) PGA and I_a forms. Equation numbers follow the CE 665 Phase 2 report.</p>
+    <p><b>Limits.</b> Shallow planar slip (infinite slope), rigid block, constant k_y, horizontal shaking only, records used unscaled. Files stay in your browser; nothing is uploaded.</p>
+  </footer>
+</div>
+
+<script>
+// Newmark engine: same formulas as newmark_tool.py v3 (Phase 2 report, Eqs. 1-10)
+const G = 9.80665;
+function checkSlope(p) {
+  const e = [];
+  const num = (k, v) => { if (v === null || v === undefined || !isFinite(v)) e.push(`${k} must be a number`); };
+  ["c", "phi", "gamma", "z", "beta", "gw"].forEach(k => num(k, p[k]));
+  if (e.length) return e;
+  if (p.c < 0) e.push("Cohesion c′ must be 0 kPa or more.");
+  if (!(p.phi >= 0 && p.phi < 90)) e.push("Friction angle φ′ must be between 0 and 90°.");
+  if (!(p.beta > 0 && p.beta < 90)) e.push("Slope angle β must be between 0 and 90°.");
+  if (!(p.z > 0)) e.push("Slip depth z must be more than 0 m.");
+  if (!(p.gamma > 0)) e.push("Unit weight γ must be more than 0.");
+  if (!(p.gw > 0)) e.push("Unit weight of water γw must be more than 0.");
+  if (p.gamma <= p.gw) e.push("Unit weight γ must be larger than γw.");
+  if (p.dw !== null && !(p.dw >= 0)) e.push("Water table depth d_w must be 0 m or more (leave empty for dry).");
+  return e;
+}
+function stability(p) {
+  const b = p.beta * Math.PI / 180, f = p.phi * Math.PI / 180;
+  const hw = p.dw === null ? 0 : Math.max(p.z - p.dw, 0);
+  const sigma = p.gamma * p.z * Math.cos(b) ** 2;
+  const u = p.gw * hw * Math.cos(b) ** 2;
+  const sigmaEff = sigma - u;
+  const tauR = p.c + sigmaEff * Math.tan(f);
+  const tauD = p.gamma * p.z * Math.sin(b) * Math.cos(b);
+  const FS = tauR / tauD;
+  const ky = FS > 1 ? (FS - 1) * Math.sin(b) : NaN;
+  return { sigma, u, sigmaEff, tauR, tauD, FS, sinb: Math.sin(b), ky, ay: ky * G };
+}
+function newmark(acc, dt, ky, s, keep) {
+  const ay = ky * G, n = acc.length;
+  let v = 0, d = 0, accPrev = 0, sliding = false, ep = 0, vmax = 0, tslide = 0;
+  const vh = keep ? new Float64Array(n) : null, dh = keep ? new Float64Array(n) : null;
+  for (let i = 1; i < n; i++) {
+    const a = s * acc[i] * G;
+    if (!sliding && a > ay) { sliding = true; ep++; accPrev = 0; }
+    if (sliding) {
+      const ai = a - ay, vn = v + 0.5 * (ai + accPrev) * dt;
+      if (vn > 0) { d += 0.5 * (vn + v) * dt; v = vn; accPrev = ai; tslide += dt; }
+      else { const tau = v > 0 ? dt * v / (v - vn) : 0; d += 0.5 * v * tau; tslide += tau; v = 0; accPrev = 0; sliding = false; }
+      if (v > vmax) vmax = v;
+    }
+    if (keep) { vh[i] = v * 100; dh[i] = d * 100; }
+  }
+  return { D: d * 100, vmax: vmax * 100, episodes: ep, tslide, vh, dh };
+}
+function both(acc, dt, ky) {
+  const p = newmark(acc, dt, ky, 1, false), m = newmark(acc, dt, ky, -1, false);
+  const gov = p.D >= m.D ? "+" : "−";
+  return { Dpos: p.D, Dneg: m.D, Dmax: Math.max(p.D, m.D), gov, vpos: p.vmax, vneg: m.vmax,
+           vmax: gov === "+" ? p.vmax : m.vmax, epPos: p.episodes, epNeg: m.episodes };
+}
+function arias(acc, dt) {
+  let s = 0;
+  for (let i = 1; i < acc.length; i++) { const a0 = acc[i - 1] * G, a1 = acc[i] * G; s += 0.5 * (a0 * a0 + a1 * a1) * dt; }
+  return Math.PI / (2 * G) * s;
+}
+function pga(acc) { let m = 0; for (const a of acc) { const x = Math.abs(a); if (x > m) m = x; } return m; }
+function am88(ac, amax) { const r = ac / amax; return r >= 1 ? 0 : 10 ** (0.90 + Math.log10((1 - r) ** 2.53 * r ** -1.09)); }
+function j07pga(ac, amax) { const r = ac / amax; return r >= 1 ? 0 : 10 ** (0.215 + Math.log10((1 - r) ** 2.341 * r ** -1.438)); }
+function j07ia(ac, ia, amax) { return ac / amax >= 1 ? 0 : 10 ** (2.401 * Math.log10(ia) - 3.481 * Math.log10(ac) - 3.230); }
+function parseAT2(text, name) {
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 5) throw new Error(`${name}: the file is too short to be a PEER .AT2 file.`);
+  if (!/UNITS OF G/i.test(lines[2])) throw new Error(`${name}: line 3 should say "UNITS OF G". Only PEER .AT2 records in g are read.`);
+  const m = lines[3].match(/NPTS\s*=\s*(\d+)\s*,\s*DT\s*=\s*([0-9.Ee+-]+)/i);
+  if (!m) throw new Error(`${name}: NPTS and DT were not found on line 4.`);
+  const npts = parseInt(m[1], 10), dt = parseFloat(m[2]);
+  if (!(dt > 0)) throw new Error(`${name}: DT must be a positive number.`);
+  const vals = lines.slice(4).join(" ").trim().split(/\s+/).filter(Boolean).map(Number);
+  if (vals.length < npts) throw new Error(`${name}: the header says ${npts} points but only ${vals.length} values were found.`);
+  const acc = Float64Array.from(vals.slice(0, npts));
+  for (const a of acc) if (!isFinite(a)) throw new Error(`${name}: the record contains a value that is not a number.`);
+  if (pga(acc) > 5) throw new Error(`${name}: PGA = ${pga(acc).toFixed(2)} g is too large. Is the record in cm/s² instead of g?`);
+  return { name: name.replace(/\.at2$/i, ""), npts, dt, acc, header: (lines[1] || "").trim() };
+}
+function percentile(sorted, p) { // Excel PERCENTILE.INC
+  if (!sorted.length) return NaN; const h = (sorted.length - 1) * p, lo = Math.floor(h), hi = Math.ceil(h);
+  return sorted[lo] + (h - lo) * (sorted[hi] - sorted[lo]);
+}
+if (typeof module !== "undefined") module.exports = { G, checkSlope, stability, newmark, both, arias, pga, am88, j07pga, j07ia, parseAT2, percentile };
+
+
+(function () {
+  const $ = id => document.getElementById(id);
+  const KY_SWEEP = [0.02, 0.05, 0.08, 0.10, 0.15, 0.20, 0.25, 0.30];
+  const PAL = ["--c1", "--c2", "--c3", "--c4", "--c5", "--c6", "--c7", "--c8"];
+  const col = i => `var(${PAL[i % PAL.length]})`;
+  const fmt = (v, d) => (v === null || v === undefined || !isFinite(v)) ? "–" : v.toFixed(d);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let records = [];
+  let last = null;
+
+  // Example record: synthetic, deterministic, clearly labelled
+  function exampleRecord() {
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const dt = 0.01, n = 3000, raw = new Float64Array(n);
+    for (let i = 0; i < n; i++) { const u1 = rnd() || 1e-9, u2 = rnd(); raw[i] = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); }
+    const acc = new Float64Array(n); let pk = 0;
+    for (let i = 0; i < n; i++) { let s = 0, k = 0; for (let j = -4; j <= 4; j++) { const q = i + j; if (q >= 0 && q < n) { s += raw[q]; k++; } }
+      const t = i * dt, env = Math.exp(-Math.pow((t - 11) / 4.5, 2)); acc[i] = (s / k) * env; pk = Math.max(pk, Math.abs(acc[i])); }
+    for (let i = 0; i < n; i++) acc[i] *= 0.45 / pk;
+    return { name: "Example record", npts: n, dt, acc, example: true };
+  }
+
+  function readSlope() {
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    const num = id => { const v = $(id).value.trim(); return v === "" ? null : Number(v); };
+    if (mode === "ky") {
+      const ky = num("kyIn");
+      if (ky === null || !(ky > 0)) return { mode, errors: ["k_y must be a number above 0 g."] };
+      return { mode, ky, errors: [] };
+    }
+    const p = { c: num("c"), phi: num("phi"), gamma: num("gamma"), z: num("z"), beta: num("beta"), dw: num("dw"), gw: num("gw") };
+    const errors = checkSlope(p).map(e => e.replace("must be a number", "is missing or not a number"));
+    return { mode, p, errors };
+  }
+
+  function kpi(label, val, sub, pill) {
+    return `<div class="kpi"><span class="lab">${label}</span><span class="val">${val}</span>${sub ? `<span class="sub">${sub}</span>` : ""}${pill || ""}</div>`;
+  }
+  function dPill(d) {
+    if (!isFinite(d)) return "";
+    if (d < 5) return `<span class="pill p-ok">below 5 cm</span>`;
+    if (d <= 10) return `<span class="pill p-warn">5–10 cm</span>`;
+    return `<span class="pill p-bad">above 10 cm</span>`;
+  }
+
+  function compute() {
+    const s = readSlope();
+    $("slopeErr").innerHTML = s.errors.map(e => `<span>${esc(e)}</span>`).join("");
+    if (s.errors.length) { $("kpis").innerHTML = kpi("Status", "Check inputs", "Fix the slope values on the left."); return; }
+    let st = null, ky;
+    if (s.mode === "soil") { st = stability(s.p); ky = st.ky; } else { ky = s.ky; }
+    $("stabPanel").hidden = s.mode !== "soil";
+    if (st) {
+      const kv = [["σ (kPa)", st.sigma, 2], ["u (kPa)", st.u, 2], ["σ′ (kPa)", st.sigmaEff, 2], ["τ_r (kPa)", st.tauR, 2], ["τ_d (kPa)", st.tauD, 2], ["FS", st.FS, 3], ["k_y (g)", st.ky, 4], ["a_y (m/s²)", st.ay, 3]];
+      $("stress").innerHTML = kv.map(([k, v, d]) => `<div><span class="k">${k}</span><span class="v">${fmt(v, d)}</span></div>`).join("");
+      $("eqline").textContent = isFinite(st.ky)
+        ? `FS = ${fmt(st.tauR, 2)} / ${fmt(st.tauD, 2)} = ${fmt(st.FS, 3)}   ·   k_y = (${fmt(st.FS, 3)} − 1) × ${fmt(st.sinb, 3)} = ${fmt(st.ky, 4)} g   ·   a_y = ${fmt(st.ay, 3)} m/s²`
+        : `FS = ${fmt(st.tauR, 2)} / ${fmt(st.tauD, 2)} = ${fmt(st.FS, 3)} ≤ 1: the slope fails without an earthquake, so k_y and the Newmark displacement do not exist.`;
+    }
+    const stable = isFinite(ky) && ky > 0;
+    const rows = records.map((r, i) => {
+      const P = pga(r.acc), Ia = arias(r.acc, r.dt);
+      if (!stable) return { r, i, P, Ia };
+      const b = both(r.acc, r.dt, ky);
+      return { r, i, P, Ia, ...b, am: am88(ky, P), jp: j07pga(ky, P), ji: j07ia(ky, Ia, P) };
+    });
+    last = { ky, st, rows, stable };
+
+    // KPIs
+    const ds = rows.filter(x => isFinite(x.Dmax)).map(x => x.Dmax).sort((a, b) => a - b);
+    const med = percentile(ds, 0.5), mx = ds.length ? ds[ds.length - 1] : NaN;
+    let html = "";
+    if (st) html += kpi("Factor of safety", fmt(st.FS, 2), "static, Eq. (1)", st.FS > 1 ? `<span class="pill p-ok">stable</span>` : `<span class="pill p-bad">fails without earthquake</span>`);
+    html += kpi("Yield coefficient k_y", stable ? fmt(ky, 3) + " g" : "–", stable ? `a_y = ${fmt(ky * G, 2)} m/s²` : "no k_y: FS ≤ 1");
+    if (stable && ds.length) {
+      html += kpi(ds.length > 1 ? "Median D_max" : "D_max", fmt(med, 2) + " cm", ds.length > 2 ? `16th–84th: ${fmt(percentile(ds, 0.16), 2)}–${fmt(percentile(ds, 0.84), 2)} cm` : `${ds.length} record${ds.length > 1 ? "s" : ""}`, dPill(med));
+      if (ds.length > 1) html += kpi("Largest D_max", fmt(mx, 2) + " cm", rows.find(x => x.Dmax === mx).r.name, dPill(mx));
+    } else if (!records.length) html += kpi("Displacement", "–", "Load a record to run Step 3.");
+    $("kpis").innerHTML = html;
+
+    // Table
+    const head = `<thead><tr><th>Record</th><th>PGA (g)</th><th>I_a (m/s)</th><th>k_y/PGA</th><th>D+ (cm)</th><th>D− (cm)</th><th>D_max (cm)</th><th>Gov.</th><th>v_max (cm/s)</th><th>Episodes +/−</th><th>AM88 (cm)</th><th>J07 PGA (cm)</th><th>J07 I_a (cm)</th></tr></thead>`;
+    let body = rows.map(x => `<tr><td class="nm"><span class="dkey" style="background:${col(x.i)}"></span>${esc(x.r.name)}</td><td>${fmt(x.P, 3)}</td><td>${fmt(x.Ia, 3)}</td><td>${stable ? fmt(ky / x.P, 2) : "–"}</td>`
+      + (stable ? `<td>${fmt(x.Dpos, 3)}</td><td>${fmt(x.Dneg, 3)}</td><td><b>${fmt(x.Dmax, 3)}</b></td><td>${x.gov}</td><td>${fmt(x.vmax, 2)}</td><td>${x.epPos} / ${x.epNeg}</td><td>${fmt(x.am, 3)}</td><td>${fmt(x.jp, 3)}</td><td>${fmt(x.ji, 3)}</td>`
+        : `<td colspan="9" style="text-align:left">not computed: FS ≤ 1</td>`) + `</tr>`).join("");
+    if (stable && ds.length > 1) body += `<tr class="sum"><td>Median</td><td></td><td></td><td></td><td></td><td></td><td>${fmt(med, 3)}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    if (!rows.length) body = `<tr><td colspan="13" style="text-align:left" class="muted">No records loaded. Add PEER .AT2 files on the left.</td></tr>`;
+    $("resTable").innerHTML = head + `<tbody>${body}</tbody>`;
+
+    drawCurve(); fillHistSel(); drawHist();
+  }
+
+  // ---------- charts ----------
+  function drawCurve() {
+    const W = 760, H = 330, x0 = 64, x1 = 730, y0 = 16, y1 = 282;
+    if (!records.length) { $("curve").innerHTML = `<p class="hint">Load a record to see its curve.</p>`; $("curveLegend").innerHTML = ""; return; }
+    const series = records.map((r, i) => ({ i, name: r.name, pts: KY_SWEEP.map(k => ({ k, d: both(r.acc, r.dt, k).Dmax })) }));
+    let dmin = Infinity, dmax = 0; series.forEach(s => s.pts.forEach(p => { if (p.d > 0) { dmin = Math.min(dmin, p.d); dmax = Math.max(dmax, p.d); } }));
+    if (!isFinite(dmin)) { dmin = 0.01; dmax = 1; }
+    const lo = Math.floor(Math.log10(Math.max(dmin, 1e-3))), hi = Math.ceil(Math.log10(dmax));
+    const X = k => x0 + (k - 0) / 0.32 * (x1 - x0);
+    const Y = d => y1 - (Math.log10(Math.max(d, 10 ** lo)) - lo) / Math.max(hi - lo, 1) * (y1 - y0);
+    let g = "";
+    for (let e = lo; e <= hi; e++) { const y = Y(10 ** e); g += `<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="var(--rule)"/><text x="${x0 - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--ink2)">${e < 0 ? (10 ** e).toFixed(-e) : String(10 ** e)}</text>`; }
+    [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30].forEach(k => { g += `<line x1="${X(k)}" x2="${X(k)}" y1="${y0}" y2="${y1}" stroke="var(--rule)" stroke-opacity=".6"/><text x="${X(k)}" y="${y1 + 18}" text-anchor="middle" font-size="11" fill="var(--ink2)">${k.toFixed(2)}</text>`; });
+    g += `<text x="${(x0 + x1) / 2}" y="${H - 6}" text-anchor="middle" font-size="12" fill="var(--ink2)">Yield coefficient k_y (g)</text><text transform="translate(16 ${(y0 + y1) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--ink2)">D_max (cm, log scale)</text>`;
+    series.forEach(s => {
+      const pts = s.pts.filter(p => p.d > 0);
+      g += `<path d="${pts.map((p, j) => (j ? "L" : "M") + X(p.k).toFixed(1) + "," + Y(p.d).toFixed(1)).join(" ")}" fill="none" stroke="${col(s.i)}" stroke-width="2"/>`;
+      pts.forEach(p => { g += `<circle cx="${X(p.k).toFixed(1)}" cy="${Y(p.d).toFixed(1)}" r="3.5" fill="${col(s.i)}"><title>${esc(s.name)}: k_y = ${p.k.toFixed(2)} g, D_max = ${fmt(p.d, 3)} cm</title></circle>`; });
+    });
+    if (last && last.stable && last.ky <= 0.32) {
+      const xk = X(last.ky);
+      g += `<line x1="${xk}" x2="${xk}" y1="${y0}" y2="${y1}" stroke="var(--ink)" stroke-dasharray="5 4" stroke-width="1.3"/><text x="${xk + (last.ky > 0.24 ? -6 : 6)}" y="${y0 + 12}" text-anchor="${last.ky > 0.24 ? "end" : "start"}" font-size="12" font-weight="600" fill="var(--ink)">this slope, k_y = ${fmt(last.ky, 3)} g</text>`;
+    }
+    $("curve").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Permanent displacement against yield coefficient for each record">${g}</svg>`;
+    $("curveLegend").innerHTML = series.map(s => `<span><span class="dkey" style="background:${col(s.i)}"></span>${esc(s.name)}</span>`).join("");
+  }
+
+  function fillHistSel() {
+    const sel = $("histSel"), cur = sel.value;
+    sel.innerHTML = records.map((r, i) => `<option value="${i}">${esc(r.name)}</option>`).join("");
+    if (cur !== "" && Number(cur) < records.length) sel.value = cur;
+    else if (last && last.rows.length && last.stable) { let bi = 0, bd = -1; last.rows.forEach(x => { if (x.Dmax > bd) { bd = x.Dmax; bi = x.i; } }); sel.value = String(bi); }
+  }
+
+  function drawHist() {
+    if (!records.length) { $("hist").innerHTML = `<p class="hint">Load a record to see its time history.</p>`; return; }
+    if (!last || !last.stable) { $("hist").innerHTML = `<p class="hint">No time history: the slope has no k_y (FS ≤ 1).</p>`; return; }
+    const i = Number($("histSel").value || 0), r = records[i], x = last.rows[i];
+    const s = x.gov === "+" ? 1 : -1, res = newmark(r.acc, r.dt, last.ky, s, true);
+    const n = r.npts, T = (n - 1) * r.dt, W = 760, x0 = 64, x1 = 740, ph = 92, gap = 26;
+    const step = Math.max(1, Math.floor(n / 1500));
+    const X = t => x0 + t / T * (x1 - x0);
+    const panel = (top, arr, label, unit, colr, mid, kyline) => {
+      let lo = Infinity, hi = -Infinity; for (let k = 0; k < n; k++) { const v = arr(k); if (v < lo) lo = v; if (v > hi) hi = v; }
+      if (kyline !== undefined) { hi = Math.max(hi, kyline * 1.15); }
+      if (hi - lo < 1e-9) { hi = lo + 1; } if (!mid) lo = Math.min(lo, 0);
+      const Y = v => top + ph - (v - lo) / (hi - lo) * ph;
+      let p = ""; for (let k = 0; k < n; k += step) p += (k ? "L" : "M") + X(k * r.dt).toFixed(1) + "," + Y(arr(k)).toFixed(1);
+      let g = `<rect x="${x0}" y="${top}" width="${x1 - x0}" height="${ph}" fill="none" stroke="var(--rule)"/>`;
+      if (lo < 0 && hi > 0) g += `<line x1="${x0}" x2="${x1}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--rule2)"/>`;
+      g += `<path d="${p}" fill="none" stroke="${colr}" stroke-width="${mid ? 1 : 1.8}"/>`;
+      if (kyline !== undefined) g += `<line x1="${x0}" x2="${x1}" y1="${Y(kyline)}" y2="${Y(kyline)}" stroke="var(--bad)" stroke-dasharray="6 4" stroke-width="1.3"/><text x="${x1 - 4}" y="${Y(kyline) - 5}" text-anchor="end" font-size="11" fill="var(--bad)">k_y = ${fmt(kyline, 3)} g</text>`;
+      g += `<text x="${x0 - 8}" y="${top + 10}" text-anchor="end" font-size="11" fill="var(--ink2)">${fmt(hi, unit === "g" ? 2 : 1)}</text><text x="${x0 - 8}" y="${top + ph}" text-anchor="end" font-size="11" fill="var(--ink2)">${fmt(lo, unit === "g" ? 2 : 1)}</text>`;
+      g += `<text x="${x0}" y="${top - 6}" font-size="11.5" font-weight="600" fill="var(--ink)">${label}</text>`;
+      return g;
+    };
+    const t1 = 50, t2 = t1 + ph + gap + 10, t3 = t2 + ph + gap + 10, H = t3 + ph + 40;
+    let g = `<text x="${x0}" y="20" font-size="13" font-weight="700" fill="var(--ink)">${esc(r.name)}, polarity ${x.gov}: D = ${fmt(res.D, 2)} cm, peak sliding velocity ${fmt(res.vmax, 1)} cm/s, ${res.episodes} sliding episode${res.episodes === 1 ? "" : "s"}</text>`;
+    g += panel(t1, k => s * r.acc[k], "s·a(t) (g)", "g", "var(--ink2)", true, last.ky);
+    g += panel(t2, k => res.vh[k], "relative velocity (cm/s)", "cm/s", "var(--accent)", false);
+    g += panel(t3, k => res.dh[k], "displacement (cm)", "cm", "var(--s1)", false);
+    const tick = T > 40 ? 10 : 5; for (let t = 0; t <= T + 1e-9; t += tick) g += `<text x="${X(t)}" y="${t3 + ph + 16}" text-anchor="middle" font-size="11" fill="var(--ink2)">${t}</text>`;
+    g += `<text x="${(x0 + x1) / 2}" y="${H - 4}" text-anchor="middle" font-size="12" fill="var(--ink2)">Time (s)</text>`;
+    $("hist").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Acceleration, sliding velocity and displacement against time">${g}</svg>`;
+  }
+
+  // ---------- records ----------
+  function renderList() {
+    $("reclist").innerHTML = records.map((r, i) => `<li><span class="nm"><span class="dkey" style="background:${col(i)}"></span>${esc(r.name)}${r.example ? '<span class="tag">synthetic example</span>' : ""}</span><span class="meta">${r.npts} pts · Δt ${r.dt} s</span><button class="x" type="button" data-i="${i}" aria-label="Remove ${esc(r.name)}">×</button></li>`).join("");
+  }
+  async function addFiles(fileList) {
+    const errs = []; const files = [...fileList];
+    if (files.length) records = records.filter(r => !r.example);
+    for (const f of files) {
+      try { const rec = parseAT2(await f.text(), f.name); if (records.some(r => r.name === rec.name)) errs.push(`${f.name}: already loaded.`); else records.push(rec); }
+      catch (e) { errs.push(e.message); }
+    }
+    $("recErr").innerHTML = errs.map(e => `<span>${esc(e)}</span>`).join("");
+    renderList(); compute();
+  }
+  $("files").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+  const drop = $("drop");
+  ["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(t => drop.addEventListener(t, () => drop.classList.remove("over")));
+  drop.addEventListener("drop", e => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+  $("reclist").addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if (!b) return; records.splice(Number(b.dataset.i), 1); renderList(); compute(); });
+
+  // ---------- inputs ----------
+  let timer = null; const later = () => { clearTimeout(timer); timer = setTimeout(compute, 200); };
+  ["c", "phi", "gamma", "z", "beta", "dw", "gw", "kyIn"].forEach(id => $(id).addEventListener("input", later));
+  document.querySelectorAll("input[name=mode]").forEach(el => el.addEventListener("change", () => {
+    const ky = el.value === "ky" && el.checked; $("soilFields").hidden = ky; $("kyFields").hidden = !ky;
+    $("slopeHint").textContent = ky ? "k_y entered directly (g). Steps 1–2 are skipped." : "Depths are vertical from the ground surface. Leave d_w empty for a dry slope; d_w ≥ z also counts as dry. Example values: case1 dry.";
+    compute();
+  }));
+  $("histSel").addEventListener("change", drawHist);
+
+  // ---------- copy CSV ----------
+  $("copyCsv").addEventListener("click", () => {
+    if (!last) return;
+    const h = ["record", "PGA_g", "Ia_ms", "ky_g", "ky_over_PGA", "D_pos_cm", "D_neg_cm", "D_max_cm", "governing_polarity", "v_max_cms", "episodes_pos", "episodes_neg", "D_AM88_cm", "D_J07_PGA_cm", "D_J07_Ia_cm"];
+    const lines = [h.join(",")].concat(last.rows.map(x => [x.r.name, x.P, x.Ia, last.ky, last.ky / x.P, x.Dpos, x.Dneg, x.Dmax, x.gov === "+" ? "+" : "-", x.vmax, x.epPos, x.epNeg, x.am, x.jp, x.ji]
+      .map(v => typeof v === "number" ? (isFinite(v) ? Number(v.toPrecision(6)) : "") : (v === undefined ? "" : v)).join(",")));
+    const text = lines.join("\n");
+    const done = msg => { $("toast").textContent = msg; setTimeout(() => $("toast").textContent = "", 2500); };
+    try { navigator.clipboard.writeText(text).then(() => done("Copied"), () => fallback()); } catch (e) { fallback(); }
+    function fallback() { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e) {} ta.remove(); done(ok ? "Copied" : "Copy not allowed here"); }
+  });
+
+  records = [exampleRecord()];
+  renderList(); compute();
+})();
+</script>
